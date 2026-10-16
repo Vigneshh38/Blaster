@@ -179,7 +179,7 @@ class Tools(private val svc: AgentService) {
 
             "open_app" -> {
                 val r = phone.openApp(a.optString("name"))
-                if (r.startsWith("ERROR")) Outcome(false, r) else { delay(1200); afterAction(true, r) }
+                if (r.startsWith("ERROR")) Outcome(false, r) else { delay(500); afterAction(true, r) }
             }
 
             "set_alarm" -> Outcome(true, phone.setAlarm(a.optInt("hour"), a.optInt("minute"), a.optString("label").ifBlank { null }))
@@ -214,15 +214,15 @@ class Tools(private val svc: AgentService) {
             "whatsapp_message" -> {
                 val (c, err) = phone.resolveContact(a.optString("name_or_number"))
                 if (c == null) Outcome(false, err!!)
-                else { val r = phone.whatsappMessage(c, a.optString("message")); delay(2000); afterAction(true, r) }
+                else { val r = phone.whatsappMessage(c, a.optString("message")); delay(1000); afterAction(true, r) }
             }
 
             "flashlight" -> Outcome(true, phone.flashlight(a.optBoolean("on", true)))
             "set_volume" -> Outcome(true, phone.setVolume(a.optInt("percent", 50), a.optString("stream", "media")))
             "media_control" -> Outcome(true, phone.media(a.optString("action", "play_pause")))
-            "open_settings" -> { val r = phone.openSettings(a.optString("page")); delay(800); afterAction(true, r) }
-            "open_url" -> { val r = phone.openUrl(a.optString("url")); delay(1500); afterAction(true, r) }
-            "navigate_to" -> { val r = phone.navigateTo(a.optString("destination")); delay(1500); afterAction(true, r) }
+            "open_settings" -> { val r = phone.openSettings(a.optString("page")); delay(350); afterAction(true, r) }
+            "open_url" -> { val r = phone.openUrl(a.optString("url")); delay(700); afterAction(true, r) }
+            "navigate_to" -> { val r = phone.navigateTo(a.optString("destination")); delay(700); afterAction(true, r) }
             "device_info" -> Outcome(true, phone.deviceInfo())
 
             "ask_user" -> {

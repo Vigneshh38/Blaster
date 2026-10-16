@@ -40,7 +40,7 @@ object UiActions {
         var target: AccessibilityNodeInfo? = el?.node
         if (target != null && !target.isEditable) {
             tap(svc, el!!)
-            delay(400)
+            delay(250)
             target = null
         }
         if (target == null) target = svc.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
@@ -102,11 +102,11 @@ object UiActions {
     }
 
     /** Waits until the screen stops changing (max [maxMs]). */
-    suspend fun waitForIdle(svc: AgentService, maxMs: Long = 2500) {
-        delay(350)
+    suspend fun waitForIdle(svc: AgentService, maxMs: Long = 1500) {
+        delay(120)
         val start = SystemClock.uptimeMillis()
         while (SystemClock.uptimeMillis() - start < maxMs) {
-            if (SystemClock.uptimeMillis() - svc.lastEventAt > 450) return
+            if (SystemClock.uptimeMillis() - svc.lastEventAt > 280) return
             delay(100)
         }
     }

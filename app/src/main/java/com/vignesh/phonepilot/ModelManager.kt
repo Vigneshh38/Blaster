@@ -16,16 +16,23 @@ object AppScope : CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers
  * The model is too big to put inside the APK, so it is downloaded once.
  */
 object ModelManager {
-    const val MODEL_URL =
-        "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
-    const val FILE_NAME = "gemma-4-E4B-it.litertlm"
+    /** FAST = Gemma 4 E2B (~2-3x faster). SMART = Gemma 4 E4B (more accurate, slower). */
+    enum class Choice(val label: String, val fileName: String, val sizeText: String) {
+        FAST("Fast (Gemma 4 E2B)", "gemma-4-E2B-it.litertlm", "2.6 GB"),
+        SMART("Smart (Gemma 4 E4B)", "gemma-4-E4B-it.litertlm", "3.7 GB");
+        val url get() = "https://huggingface.co/litert-community/${fileName.removeSuffix(".litertlm")}-litert-lm/resolve/main/$fileName"
+    }
+
+    fun choice(ctx: Context): Choice =
+        runCatching { Choice.valueOf(prefs(ctx).getString("model", "FAST")!!) }.getOrDefault(Choice.FAST)
+    fun setChoice(ctx: Context, c: Choice) = prefs(ctx).edit().putString("model", c.name).apply()
     private const val PREFS = "phonepilot"
     private const val KEY_DOWNLOAD_ID = "download_id"
     private const val MIN_SIZE = 1_000_000_000L // a real model file is > 1 GB
 
     @Volatile var copyProgress: String? = null
 
-    fun modelFile(ctx: Context): File = File(ctx.getExternalFilesDir(null), FILE_NAME)
+    fun modelFile(ctx: Context): File = File(ctx.getExternalFilesDir(null), choice(ctx).fileName)
 
     fun isReady(ctx: Context): Boolean {
         val f = modelFile(ctx)
@@ -36,11 +43,12 @@ object ModelManager {
     fun startDownload(ctx: Context) {
         val dm = ctx.getSystemService(DownloadManager::class.java)
         modelFile(ctx).delete()
-        val req = DownloadManager.Request(Uri.parse(MODEL_URL))
-            .setTitle("PhonePilot brain (Gemma 4 E4B)")
-            .setDescription("One-time download, about 3.7 GB")
+        val c = choice(ctx)
+        val req = DownloadManager.Request(Uri.parse(c.url))
+            .setTitle("PhonePilot brain: ${c.label}")
+            .setDescription("One-time download, about ${c.sizeText}")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalFilesDir(ctx, null, FILE_NAME)
+            .setDestinationInExternalFilesDir(ctx, null, c.fileName)
         val id = dm.enqueue(req)
         prefs(ctx).edit().putLong(KEY_DOWNLOAD_ID, id).apply()
     }

@@ -17,8 +17,8 @@ class ScreenSnapshot(val text: String, val elements: List<UiElement>, val packag
  * The model answers with tap(element_id=3), and we tap that exact element.
  */
 object ScreenReader {
-    private const val MAX_ELEMENTS = 70
-    private const val MAX_TEXT = 70
+    private const val MAX_ELEMENTS = 45
+    private const val MAX_TEXT = 45
 
     fun capture(svc: AccessibilityService): ScreenSnapshot {
         val (w, h) = UiActions.screenSize(svc)

@@ -83,7 +83,18 @@ class MainActivity : Activity() {
         root.addView(statusText)
 
         root.addView(title("Setup (do these once, in order)", 17f))
-        root.addView(btn("1. Download the brain (3.7 GB, use Wi-Fi)") {
+        root.addView(Switch(this).apply {
+            text = "Smart mode (Gemma 4 E4B: more accurate but 2-3x slower). OFF = Fast mode (Gemma 4 E2B)."
+            setTextColor(Color.WHITE)
+            isChecked = ModelManager.choice(this@MainActivity) == ModelManager.Choice.SMART
+            setOnCheckedChangeListener { _, v ->
+                ModelManager.setChoice(this@MainActivity, if (v) ModelManager.Choice.SMART else ModelManager.Choice.FAST)
+                toast(if (ModelManager.isReady(this@MainActivity)) "Switched. The new brain loads on the next command."
+                      else "Now tap Download for this brain.")
+            }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) }
+        })
+        root.addView(btn("1. Download the brain (Wi-Fi, one-time)") {
             ModelManager.startDownload(this); toast("Download started. Check the notification.")
         })
         root.addView(btn("   …or pick a model file I already downloaded") {
@@ -154,7 +165,7 @@ class MainActivity : Activity() {
             else -> "⏳ Loads when service starts"
         }
         val speech = if (AgentService.instance?.voice?.hasRecognizer() == true) "✅ Available" else "–"
-        statusText.text = "Model file: $model\nAccessibility: $service\nPermissions: $perms\nBrain: $brain\nOffline speech: $speech"
+        statusText.text = "Mode: ${ModelManager.choice(this).label}\nModel file: $model\nAccessibility: $service\nPermissions: $perms\nBrain: $brain\nOffline speech: $speech"
 
         lastLogText.text = ModelManager.prefs(this).getString("last_log", "No runs yet.")
         val arr = runCatching { JSONArray(ModelManager.prefs(this).getString("history", "[]")) }.getOrElse { JSONArray() }

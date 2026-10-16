@@ -31,8 +31,17 @@ object Brain {
 
     private val lock = Mutex()
 
+    @Volatile private var loadedPath: String? = null
+
     suspend fun ensureLoaded(ctx: Context): Engine = lock.withLock {
-        engine ?: withContext(dispatcher) { load(ctx.applicationContext) }
+        val wanted = ModelManager.modelFile(ctx).absolutePath
+        val current = engine
+        if (current != null && loadedPath == wanted) return@withLock current
+        withContext(dispatcher) {
+            runCatching { current?.close() }
+            engine = null
+            load(ctx.applicationContext).also { loadedPath = wanted }
+        }
     }
 
     @OptIn(ExperimentalApi::class)
@@ -58,7 +67,7 @@ object Brain {
                     audioBackend = Backend.CPU(),    // lets the model "hear" voice
                     // Context window (how much text the model can remember in one task).
                     // If Android Studio says "No parameter named maxNumTokens", delete this line.
-                    maxNumTokens = 16384,
+                    maxNumTokens = 8192,
                     cacheDir = ctx.cacheDir.path,
                 )
                 val e = Engine(config)

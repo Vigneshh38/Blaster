@@ -132,7 +132,7 @@ Examples:
 
     private suspend fun newConversation(engine: Engine): Conversation = withContext(Brain.dispatcher) {
         val toolList = tools.schemas.map { tool(SchemaTool(it)) }
-        val sampler = SamplerConfig(topK = 20, topP = 0.9, temperature = 0.2) // low randomness = precise
+        val sampler = SamplerConfig(topK = 1, topP = 1.0, temperature = 0.1) // greedy = fastest + most consistent
         try {
             engine.createConversation(
                 ConversationConfig(
