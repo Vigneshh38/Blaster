@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">PhonePilot</string>
+    <string name="accessibility_description">PhonePilot reads the screen and taps, types and scrolls for you when you give it a command. Everything runs offline on this phone using the Gemma 4 model. Nothing is sent to the internet.</string>
+</resources>
