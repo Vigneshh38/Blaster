@@ -29,7 +29,19 @@ jobs:
           gradle-version: 8.14.3
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --console=plain 2>&1 | tee build.log
+
+      - name: Report build errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|FAILURE|Could not|> " build.log | head -60 > errs.txt || true
+          split -l 6 errs.txt part_
+          for f in part_*; do
+            msg=$(sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g' "$f")
+            echo "::error::$msg"
+          done
 
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk PhonePilot.apk
