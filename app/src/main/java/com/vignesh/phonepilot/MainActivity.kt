@@ -31,6 +31,7 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var statusText: TextView
     private lateinit var historyText: TextView
+    private lateinit var lastLogText: TextView
     private lateinit var commandBox: EditText
     private val pickModel = 42
 
@@ -39,6 +40,7 @@ class MainActivity : Activity() {
         Manifest.permission.CALL_PHONE,
         Manifest.permission.SEND_SMS,
         Manifest.permission.READ_CONTACTS,
+        Manifest.permission.READ_PHONE_STATE,
         Manifest.permission.POST_NOTIFICATIONS,
     )
 
@@ -129,6 +131,9 @@ class MainActivity : Activity() {
         root.addView(title("Recent commands", 17f))
         historyText = TextView(this).apply { setTextColor(0xFFCFD8DC.toInt()) }
         root.addView(historyText)
+        root.addView(title("Last run details (step timings)", 17f))
+        lastLogText = TextView(this).apply { setTextColor(0xFF90A4AE.toInt()); textSize = 12f; setTextIsSelectable(true) }
+        root.addView(lastLogText)
 
         setContentView(ScrollView(this).apply { setBackgroundColor(0xFF101010.toInt()); addView(root) })
     }
@@ -151,6 +156,7 @@ class MainActivity : Activity() {
         val speech = if (AgentService.instance?.voice?.hasRecognizer() == true) "✅ Available" else "–"
         statusText.text = "Model file: $model\nAccessibility: $service\nPermissions: $perms\nBrain: $brain\nOffline speech: $speech"
 
+        lastLogText.text = ModelManager.prefs(this).getString("last_log", "No runs yet.")
         val arr = runCatching { JSONArray(ModelManager.prefs(this).getString("history", "[]")) }.getOrElse { JSONArray() }
         historyText.text = if (arr.length() == 0) "None yet." else buildString {
             for (i in arr.length() - 1 downTo maxOf(0, arr.length() - 8)) {

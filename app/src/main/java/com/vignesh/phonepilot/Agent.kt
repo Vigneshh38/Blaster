@@ -24,8 +24,9 @@ How to work, step by step:
 3. Otherwise use the screen like a person: tap, type_text, scroll, swipe, press_key. Every screen element has an [id]. Only use ids from the NEWEST screen, because ids change after every action.
 4. Call exactly ONE tool at a time. After each action you get "new_screen". Check it changed as you expected before the next step. If the thing you need is not visible, scroll. If you are stuck, press back, try another way, or use look_at_screen to see the screen as an image.
 5. If something important is unclear or several choices fit (for example two contacts), call ask_user. Do not guess.
-6. When the task is finished, call finish with a one-sentence summary. If it is impossible, call finish and say why. If the user only asked a question, answer it with finish.
-7. Time is 24-hour for set_alarm: "6:30 pm" means hour=18, minute=30.
+6. Never say you did something unless a tool result had "ok": true and the new screen confirms it. If a step failed, say it failed.
+7. When the task is finished, call finish with a one-sentence summary. If it is impossible, call finish and say why. If the user only asked a question, answer it with finish.
+8. Time is 24-hour for set_alarm: "6:30 pm" means hour=18, minute=30.
 
 Examples:
 - "wake me up at 6 tomorrow" -> set_alarm(hour=6, minute=0) -> finish
@@ -37,20 +38,43 @@ Examples:
 
     private val tools = Tools(svc)
     private val actionLog = mutableListOf<String>()
+    private val runLog = mutableListOf<String>()
     private var commandText = ""
+    private val t0 = android.os.SystemClock.elapsedRealtime()
+
+    private fun log(line: String) {
+        val secs = (android.os.SystemClock.elapsedRealtime() - t0) / 1000.0
+        runLog += "[%.1fs] %s".format(secs, line)
+    }
 
     suspend fun run(command: String?, audio: ByteArray?) {
         val ui = svc.overlay
         ui.setRunning(true)
         var conv: Conversation? = null
         try {
+            commandText = command ?: "(spoken command in audio)"
+            log("Command: $commandText")
+
+            // 1) Instant path for simple commands (no AI needed).
+            var prior: String? = null
+            val fast = command?.let { FastCommands.match(it) }
+            if (fast != null) {
+                ui.status("Doing: ${describe(fast.first, fast.second)}")
+                val o = tools.execute(fast.first, fast.second)
+                log("FAST ${fast.first}(${fast.second}) -> ok=${o.ok}: ${o.result}")
+                if (o.ok) { done(o.result); return }
+                prior = "I already tried ${fast.first}(${fast.second}) and it returned: ${o.result}"
+            }
+
+            // 2) AI path.
             ui.status("Loading brain…")
             val engine = Brain.ensureLoaded(svc)
-            commandText = command ?: "(spoken command in audio)"
+            log("Brain ready on ${Brain.backendName}")
             ui.status("Understanding: ${command ?: "voice command"}")
 
             conv = newConversation(engine)
-            var reply = send(conv, firstMessage(command, audio))
+            var reply = send(conv, firstMessage(command, audio, prior))
+            log("AI replied: ${reply.toolCalls.joinToString { it.name }.ifEmpty { "text" }}")
             var steps = 0
 
             while (currentCoroutineContext().isActive) {
@@ -74,6 +98,7 @@ Examples:
                 ui.status("Step $steps: ${describe(call.name, args)}")
                 val outcome = tools.execute(call.name, args)
                 actionLog += "${call.name}($args) -> ${outcome.result.take(100)}"
+                log("Step $steps ${call.name}($args) -> ok=${outcome.ok}: ${outcome.result.take(120)}")
 
                 val responses = mutableListOf<Content>(Content.ToolResponse(call.name, outcome.json()))
                 // If the model asked for several tools at once, only the first ran.
@@ -87,14 +112,17 @@ Examples:
                 val result = sendToolResults(conv!!, engine, responses, outcome.image)
                 conv = result.first
                 reply = result.second
+                log("AI replied: ${reply.toolCalls.joinToString { it.name }.ifEmpty { "text" }}")
             }
         } catch (c: CancellationException) {
             ui.status("Stopped.")
             throw c
         } catch (t: Throwable) {
+            log("ERROR: ${t.message}")
             ui.status("Error: ${t.message}")
             svc.voice.speak("Sorry, something went wrong.")
         } finally {
+            ModelManager.prefs(svc).edit().putString("last_log", runLog.joinToString("\n")).apply()
             runCatching { conv?.close() }
             ui.setRunning(false)
         }
@@ -112,8 +140,8 @@ Examples:
                     tools = toolList,
                     automaticToolCalling = false,
                     samplerConfig = sampler,
-                    // Short private "thinking" before each action improves accuracy.
-                    thinkingConfig = ThinkingConfig(enableThinking = true, thinkingTokenBudget = 384),
+                    // Thinking OFF: it made every step 10-20 s slower on the phone.
+                    thinkingConfig = ThinkingConfig(enableThinking = false, thinkingTokenBudget = 0),
                 )
             )
         } catch (t: Throwable) {
@@ -129,8 +157,8 @@ Examples:
         }
     }
 
-    private fun firstMessage(command: String?, audio: ByteArray?): Contents {
-        val screen = tools.freshScreen()
+    private fun firstMessage(command: String?, audio: ByteArray?, prior: String?): Contents {
+        val screen = (if (prior != null) "$prior\n\n" else "") + tools.freshScreen()
         return if (audio != null) {
             Contents.of(
                 Content.AudioBytes(audio),
@@ -176,6 +204,7 @@ Examples:
     // ------------------------------------------------------------------ helpers
 
     private fun done(text: String) {
+        log("DONE: $text")
         svc.overlay.status("✓ $text")
         svc.voice.speak(text)
         svc.addHistory(commandText, text)

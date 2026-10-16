@@ -189,7 +189,18 @@ class Tools(private val svc: AgentService) {
                 val (c, err) = phone.resolveContact(a.optString("name_or_number"))
                 if (c == null) Outcome(false, err!!)
                 else if (!guard("Call ${c.name} (${c.number})")) Outcome(false, "The user said NO. Do not call. Call finish.")
-                else Outcome(true, phone.call(c))
+                else {
+                    phone.call(c)
+                    // Verify the call really started (it may be waiting for a SIM choice on screen).
+                    var started = phone.isInCall()
+                    var waited = 0
+                    while (started == false && waited < 4000) { delay(500); waited += 500; started = phone.isInCall() }
+                    when (started) {
+                        true -> Outcome(true, "Call to ${c.name} (${c.number}) has started.")
+                        false -> afterAction(false, "The call to ${c.name} did NOT start yet. Look at the new screen: if it asks which SIM to use, tap a SIM. If not, tell the user the call failed.")
+                        null -> afterAction(true, "Call requested to ${c.name} (${c.number}). Check the new screen shows a call in progress before saying it worked.")
+                    }
+                }
             }
 
             "send_sms" -> {

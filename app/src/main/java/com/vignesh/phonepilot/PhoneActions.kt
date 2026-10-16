@@ -113,11 +113,25 @@ class PhoneActions(private val ctx: Context) {
         }
     }
 
-    fun call(contact: Contact): String {
-        val i = Intent(Intent.ACTION_CALL, Uri.parse("tel:${contact.number}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        ctx.startActivity(i)
-        return "Calling ${contact.name} (${contact.number})."
+    /** Places the call through Android's telecom system (more reliable than opening the dialer). */
+    @android.annotation.SuppressLint("MissingPermission")
+    fun call(contact: Contact) {
+        val tm = ctx.getSystemService(android.telecom.TelecomManager::class.java)
+        try {
+            tm.placeCall(Uri.fromParts("tel", contact.number, null), android.os.Bundle())
+        } catch (e: SecurityException) {
+            throw e
+        } catch (e: Exception) {
+            val i = Intent(Intent.ACTION_CALL, Uri.parse("tel:${contact.number}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i)
+        }
     }
+
+    /** True if a phone call is ringing or active right now (needs READ_PHONE_STATE). */
+    @android.annotation.SuppressLint("MissingPermission")
+    fun isInCall(): Boolean? = try {
+        ctx.getSystemService(android.telecom.TelecomManager::class.java).isInCall
+    } catch (_: SecurityException) { null }
 
     fun sendSms(contact: Contact, message: String): String {
         val sms = ctx.getSystemService(SmsManager::class.java)
