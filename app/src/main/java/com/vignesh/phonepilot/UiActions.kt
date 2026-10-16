@@ -171,6 +171,38 @@ object UiActions {
         }
     }
 
+    /** Finds the first visible node on screen that matches [pred]. */
+    fun findNode(svc: AgentService, pred: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        val roots = mutableListOf<AccessibilityNodeInfo>()
+        runCatching { svc.windows.forEach { w -> w.root?.let { roots.add(it) } } }
+        svc.rootInActiveWindow?.let { roots.add(it) }
+        for (r in roots) {
+            val q = ArrayDeque<AccessibilityNodeInfo>()
+            q.add(r)
+            while (q.isNotEmpty()) {
+                val n = q.removeFirst()
+                if (n.isVisibleToUser && pred(n)) return n
+                for (i in 0 until n.childCount) n.getChild(i)?.let { q.add(it) }
+            }
+        }
+        return null
+    }
+
+    /** Waits up to [timeoutMs] for a matching node to appear. */
+    suspend fun waitForNode(svc: AgentService, timeoutMs: Long, pred: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        val end = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < end) {
+            findNode(svc, pred)?.let { return it }
+            delay(200)
+        }
+        return null
+    }
+
+    suspend fun tapNode(svc: AgentService, node: AccessibilityNodeInfo): Boolean {
+        val b = android.graphics.Rect().also { node.getBoundsInScreen(it) }
+        return tap(svc, UiElement(node, "", b))
+    }
+
     fun screenSize(ctx: android.content.Context): Pair<Int, Int> = try {
         val b = ctx.getSystemService(android.view.WindowManager::class.java).maximumWindowMetrics.bounds
         b.width() to b.height()

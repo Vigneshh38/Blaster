@@ -213,8 +213,24 @@ class Tools(private val svc: AgentService) {
 
             "whatsapp_message" -> {
                 val (c, err) = phone.resolveContact(a.optString("name_or_number"))
-                if (c == null) Outcome(false, err!!)
-                else { val r = phone.whatsappMessage(c, a.optString("message")); delay(1000); afterAction(true, r) }
+                val msg = a.optString("message").trim().trim('"', '\'')
+                if (c == null) return Outcome(false, err!!)
+                if (msg.isEmpty()) return Outcome(false, "No message text. Ask the user what to send.")
+                if (!guard("Send WhatsApp to ${c.name}: \"$msg\"")) return Outcome(false, "The user said NO. Do not send. Call finish.")
+                phone.whatsappMessage(c, msg)
+                // Press WhatsApp's Send button ourselves, then check the text box is empty (= sent).
+                val isSend: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean = { n ->
+                    val id = n.viewIdResourceName.orEmpty()
+                    id.endsWith(":id/send") || n.contentDescription?.toString().equals("Send", ignoreCase = true)
+                }
+                val send = UiActions.waitForNode(svc, 6000, isSend)
+                    ?: return afterAction(false, "Opened the WhatsApp chat but could not find the Send button. Look at the screen and tap Send.")
+                UiActions.tapNode(svc, send)
+                delay(700)
+                val box = UiActions.findNode(svc) { it.viewIdResourceName.orEmpty().endsWith(":id/entry") }
+                val stillTyped = box?.text?.toString()?.trim() == msg
+                if (stillTyped) afterAction(false, "Pressed Send but the message is still in the text box. It was NOT sent.")
+                else afterAction(true, "WhatsApp message sent to ${c.name}: \"$msg\"")
             }
 
             "flashlight" -> Outcome(true, phone.flashlight(a.optBoolean("on", true)))

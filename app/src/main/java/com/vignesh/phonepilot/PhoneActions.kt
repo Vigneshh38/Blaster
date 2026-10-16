@@ -149,7 +149,7 @@ class PhoneActions(private val ctx: Context) {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (isInstalled("com.whatsapp")) i.setPackage("com.whatsapp")
         ctx.startActivity(i)
-        return "Opened WhatsApp chat with ${contact.name} with the message typed. Now tap the Send button on the screen to send it."
+        return "Opened WhatsApp chat with ${contact.name} with the message typed."
     }
 
     // ---------- device controls ----------

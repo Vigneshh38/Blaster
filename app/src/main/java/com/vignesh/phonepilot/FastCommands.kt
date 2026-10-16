@@ -10,12 +10,17 @@ import org.json.JSONObject
 object FastCommands {
 
     // "hey can you pls ..." / "... please" → removed, so only the real command is matched.
-    private val FILLER_START = Regex("^(?:(?:hey|hi|ok|okay|please|pls|plz|kindly|just|can you|could you|will you|would you|i want you to)\\b[ ,]*)+")
-    private val FILLER_END = Regex("(?:[ ,]+(?:please|pls|plz|now|for me|quickly))+$")
+    private val FILLER_START = Regex("^(?:(?:hey|hi|ok|okay|please|pls|plz|kindly|just|can you|could you|will you|would you|i want you to)\\b[ ,]*)+", RegexOption.IGNORE_CASE)
+    private val FILLER_END = Regex("(?:[ ,]+(?:please|pls|plz|now|for me|quickly))+$", RegexOption.IGNORE_CASE)
 
     fun match(raw: String): Pair<String, JSONObject>? {
-        val s = raw.lowercase().trim().trimEnd('.', '!', '?').replace(Regex("\\s+"), " ")
+        // Keep the original letters (for message text), and a lowercase copy for matching commands.
+        val orig = raw.trim().trimEnd('.', '!', '?').replace(Regex("\\s+"), " ")
             .replace(FILLER_START, "").replace(FILLER_END, "").trim()
+        val s = orig.lowercase()
+        // WhatsApp / SMS messages (checked first: the message text itself may contain "and").
+        matchMessage(orig)?.let { return it }
+
         if (Regex("\\b(and|then|after that)\\b").containsMatchIn(s)) return null // multi-step → AI
 
         // call <name or number>
@@ -78,6 +83,28 @@ object FastCommands {
         Regex("^(?:open|launch|start) (?:the )?(.+?)(?: app)?$").find(s)?.let {
             return "open_app" to JSONObject().put("name", it.groupValues[1])
         }
+        return null
+    }
+
+    private fun clean(t: String) = t.trim().trim('"', '\'', ',', ':').trim().removePrefix("my ").removePrefix("My ")
+
+    /** "send hi to umer on whatsapp", "whatsapp umer saying I'm late", "text amma on whatsapp: ok" */
+    private fun matchMessage(s: String): Pair<String, JSONObject>? {
+        fun wa(contact: String, msg: String) = "whatsapp_message" to
+            JSONObject().put("name_or_number", clean(contact)).put("message", clean(msg))
+        fun sms(contact: String, msg: String) = "send_sms" to
+            JSONObject().put("name_or_number", clean(contact)).put("message", clean(msg))
+        val via = "(?:on|in|via|through) (?:whatsapp|wa)"
+        val say = "(?:saying|that|as|with|message|:)"
+
+        // send <msg> to <contact> on whatsapp
+        Regex("^(?:send|message|text) (.+) to (.+?) $via$", RegexOption.IGNORE_CASE).find(s)?.let { return wa(it.groupValues[2], it.groupValues[1]) }
+        // (send a) whatsapp (message) to <contact> saying <msg>
+        Regex("^(?:send )?(?:an? )?(?:whatsapp|wa)(?: message| msg| text)? (?:to )?(.+?) $say (.+)$", RegexOption.IGNORE_CASE).find(s)?.let { return wa(it.groupValues[1], it.groupValues[2]) }
+        // message/text <contact> on whatsapp (saying) <msg>
+        Regex("^(?:send )?(?:an? )?(?:message|msg|text)(?: to)? (.+?) $via(?: $say)? (.+)$", RegexOption.IGNORE_CASE).find(s)?.let { return wa(it.groupValues[1], it.groupValues[2]) }
+        // send an sms to <contact> saying <msg>
+        Regex("^(?:send )?(?:an? )?(?:sms|text message) (?:to )?(.+?) $say (.+)$", RegexOption.IGNORE_CASE).find(s)?.let { return sms(it.groupValues[1], it.groupValues[2]) }
         return null
     }
 }
