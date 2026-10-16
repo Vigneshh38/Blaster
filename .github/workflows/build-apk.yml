@@ -36,7 +36,7 @@ jobs:
       - name: Report build errors
         if: failure()
         run: |
-          grep -E "^e: |error:|What went wrong|FAILURE|Could not|> " build.log | head -60 > errs.txt || true
+          grep -E "^e: |error:|What went wrong|Could not" build.log | grep -v "incompatible version" | head -60 > errs.txt || true
           split -l 6 errs.txt part_
           for f in part_*; do
             msg=$(sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g' "$f")

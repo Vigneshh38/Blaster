@@ -41,6 +41,6 @@ kotlin {
 
 dependencies {
     // Google's on-device LLM runtime (runs Gemma 4 on the phone's GPU)
-    implementation("com.google.ai.edge.litertlm:litertlm-android:latest.release")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }
