@@ -69,7 +69,7 @@ class Tools(private val svc: AgentService) {
         spec("set_timer", "Start a countdown timer.",
             P("seconds", "integer", "Length in seconds"),
             P("label", "string", "Optional label", required = false)),
-        spec("call_contact", "Phone call a contact or number.",
+        spec("phone_call", "Phone call a contact or number.",
             P("name_or_number", "string", "Contact name exactly as the user said, or a phone number")),
         spec("send_sms", "Send a normal SMS text message.",
             P("name_or_number", "string", "Contact name or number"),
@@ -185,7 +185,7 @@ class Tools(private val svc: AgentService) {
             "set_alarm" -> Outcome(true, phone.setAlarm(a.optInt("hour"), a.optInt("minute"), a.optString("label").ifBlank { null }))
             "set_timer" -> Outcome(true, phone.setTimer(a.optInt("seconds"), a.optString("label").ifBlank { null }))
 
-            "call_contact" -> {
+            "phone_call" -> {
                 val (c, err) = phone.resolveContact(a.optString("name_or_number"))
                 if (c == null) Outcome(false, err!!)
                 else if (!guard("Call ${c.name} (${c.number})")) Outcome(false, "The user said NO. Do not call. Call finish.")

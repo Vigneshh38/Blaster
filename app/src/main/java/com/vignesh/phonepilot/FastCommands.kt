@@ -9,14 +9,18 @@ import org.json.JSONObject
  */
 object FastCommands {
 
+    // "hey can you pls ..." / "... please" → removed, so only the real command is matched.
+    private val FILLER_START = Regex("^(?:(?:hey|hi|ok|okay|please|pls|plz|kindly|just|can you|could you|will you|would you|i want you to)\\b[ ,]*)+")
+    private val FILLER_END = Regex("(?:[ ,]+(?:please|pls|plz|now|for me|quickly))+$")
+
     fun match(raw: String): Pair<String, JSONObject>? {
         val s = raw.lowercase().trim().trimEnd('.', '!', '?').replace(Regex("\\s+"), " ")
-            .removePrefix("please ").removePrefix("hey ").removePrefix("can you ").removePrefix("could you ")
+            .replace(FILLER_START, "").replace(FILLER_END, "").trim()
         if (Regex("\\b(and|then|after that)\\b").containsMatchIn(s)) return null // multi-step → AI
 
         // call <name or number>
-        Regex("^(?:call|phone|dial|ring)(?: to)? (.+?)(?: now| please| for me)?$").find(s)?.let {
-            return "call_contact" to JSONObject().put("name_or_number", it.groupValues[1])
+        Regex("^(?:call|phone|dial|ring)(?: to)? (.+)$").find(s)?.let {
+            return "phone_call" to JSONObject().put("name_or_number", it.groupValues[1])
         }
 
         // alarm at 6, alarm for 6:30 am, wake me up at 7 pm
