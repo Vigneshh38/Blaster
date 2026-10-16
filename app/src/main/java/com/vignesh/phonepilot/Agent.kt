@@ -84,7 +84,7 @@ Examples:
                             .put("result", "Skipped. Do ONE action at a time; check the new screen first.").toString()
                     )
                 }
-                val result = sendToolResults(conv, engine, responses, outcome.image)
+                val result = sendToolResults(conv!!, engine, responses, outcome.image)
                 conv = result.first
                 reply = result.second
             }
