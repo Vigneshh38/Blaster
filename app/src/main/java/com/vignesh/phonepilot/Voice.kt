@@ -55,7 +55,7 @@ class Voice(private val ctx: Context) : TextToSpeech.OnInitListener {
         SpeechRecognizer.isOnDeviceRecognitionAvailable(ctx) || SpeechRecognizer.isRecognitionAvailable(ctx)
 
     /** Listens once and returns what the user said, or null. Fully offline when on-device recognition exists. */
-    suspend fun listen(): String? = withContext(Dispatchers.Main) {
+    suspend fun listen(onRms: ((Float) -> Unit)? = null, onPartial: ((String) -> Unit)? = null): String? = withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { cont ->
             lastError = 0
             val rec = when {
@@ -72,6 +72,7 @@ class Voice(private val ctx: Context) : TextToSpeech.OnInitListener {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, onPartial != null)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
             }
             rec.setRecognitionListener(object : RecognitionListener {
@@ -87,10 +88,13 @@ class Voice(private val ctx: Context) : TextToSpeech.OnInitListener {
                 }
                 override fun onReadyForSpeech(params: Bundle?) {}
                 override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onRmsChanged(rmsdB: Float) { onRms?.invoke(rmsdB) }
                 override fun onBufferReceived(buffer: ByteArray?) {}
                 override fun onEndOfSpeech() {}
-                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onPartialResults(partialResults: Bundle?) {
+                    partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                        ?.takeIf { it.isNotBlank() }?.let { onPartial?.invoke(it) }
+                }
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
             rec.startListening(intent)

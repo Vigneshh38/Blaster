@@ -223,12 +223,12 @@ class Overlay(private val svc: AgentService) {
 
     private fun onBubbleTap() {
         if (running) { svc.stopCommand(); return }
-        if (panelShown) closePanel() else openPanel("What should I do?", withInput = true, confirmMode = false)
+        if (panelShown) closePanel() else svc.openAssistant()
     }
 
     private fun onBubbleLongPress() {
         if (running) return
-        svc.listenAndRun()
+        svc.openAssistant()
     }
 
     fun speechProblem() {

@@ -110,6 +110,18 @@ class MainActivity : Activity() {
             toast("Installed apps → PhonePilot → turn ON")
         })
 
+        root.addView(btn("5. Link the Plus Key (tap, then press the Plus Key)") {
+            val svc = AgentService.instance ?: return@btn toast("Turn on PhonePilot in Accessibility first.")
+            svc.learnKey = true
+            toast("Now press the Plus Key on the side of your phone")
+            handler.postDelayed({
+                if (svc.learnKey) { svc.learnKey = false; plusKeyHelp() }
+            }, 10_000)
+        })
+        root.addView(btn("✨ Open the assistant now") {
+            AgentService.instance?.openAssistant() ?: toast("Turn on PhonePilot in Accessibility first.")
+        })
+
         root.addView(Switch(this).apply {
             text = "Ask me before sending, paying, deleting or calling"
             setTextColor(Color.WHITE)
@@ -164,8 +176,9 @@ class MainActivity : Activity() {
             Brain.lastError != null -> "❌ ${Brain.lastError}"
             else -> "⏳ Loads when service starts"
         }
+        val plusKey = if (ModelManager.prefs(this).getInt("plus_key", -1) != -1) "✅ Linked" else "– Not linked"
         val speech = if (AgentService.instance?.voice?.hasRecognizer() == true) "✅ Available" else "–"
-        statusText.text = "Mode: ${ModelManager.choice(this).label}\nModel file: $model\nAccessibility: $service\nPermissions: $perms\nBrain: $brain\nOffline speech: $speech"
+        statusText.text = "Mode: ${ModelManager.choice(this).label}\nModel file: $model\nAccessibility: $service\nPermissions: $perms\nBrain: $brain\nOffline speech: $speech\nPlus Key: $plusKey"
 
         lastLogText.text = ModelManager.prefs(this).getString("last_log", "No runs yet.")
         val arr = runCatching { JSONArray(ModelManager.prefs(this).getString("history", "[]")) }.getOrElse { JSONArray() }
@@ -204,6 +217,22 @@ class MainActivity : Activity() {
                 withContext(Dispatchers.Main) { toast(if (ok) "Model copied ✅" else "Copy failed") }
             }
         }
+    }
+
+    private fun plusKeyHelp() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Plus Key not detected")
+            .setMessage(
+                "OnePlus does not send the Plus Key to other apps. Other ways to open PhonePilot fast:\n\n" +
+                "1) Quick Settings tile (easiest): swipe down twice → tap ✏️ edit → drag \"PhonePilot\" into your tiles.\n\n" +
+                "2) Plus Key with Tasker + Shizuku (no root):\n" +
+                "  • Install Shizuku and start it with wireless debugging.\n" +
+                "  • Tasker → Profile → Event → Logcat Entry → record a Plus Key press (component KEYLOG_OplusKeyEventUtil).\n" +
+                "  • Task → Send Intent → Action: com.vignesh.phonepilot.LISTEN, Target: Activity.\n\n" +
+                "3) Tap or long-press the floating 🎙 bubble."
+            )
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_LONG).show()

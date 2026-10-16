@@ -59,6 +59,44 @@ class AgentService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    // ------------------------------------------------------------------ Plus Key
+
+    /** When true, the next key press is saved as "the Plus Key". */
+    @Volatile var learnKey = false
+
+    private val ignoredKeys = setOf(
+        android.view.KeyEvent.KEYCODE_VOLUME_UP, android.view.KeyEvent.KEYCODE_VOLUME_DOWN,
+        android.view.KeyEvent.KEYCODE_POWER, android.view.KeyEvent.KEYCODE_BACK, android.view.KeyEvent.KEYCODE_HOME,
+    )
+
+    override fun onKeyEvent(event: android.view.KeyEvent): Boolean {
+        val code = event.keyCode
+        if (code in ignoredKeys) return false
+        if (learnKey) {
+            if (event.action == android.view.KeyEvent.ACTION_UP) {
+                learnKey = false
+                ModelManager.prefs(this).edit().putInt("plus_key", code).apply()
+                android.widget.Toast.makeText(this, "Plus Key linked to PhonePilot ✓", android.widget.Toast.LENGTH_LONG).show()
+            }
+            return true
+        }
+        val saved = ModelManager.prefs(this).getInt("plus_key", -1)
+        if (saved != -1 && code == saved) {
+            if (event.action == android.view.KeyEvent.ACTION_UP) openAssistant()
+            return true
+        }
+        return false
+    }
+
+    /** Opens the full-screen wave assistant. */
+    fun openAssistant() {
+        if (isRunning) { stopCommand(); return }
+        startActivity(
+            android.content.Intent(this, AssistantActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_NO_ANIMATION)
+        )
+    }
+
     override fun onDestroy() {
         instance = null
         job?.cancel()
